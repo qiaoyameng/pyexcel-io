@@ -2,6 +2,12 @@ name: pyexcel-io
 organisation: pyexcel
 releases:
 - changes:
+  - action: added
+    details:
+    - csvz/tsvz: optional in-package manifest recording each table's member path,
+      sheet name, encoding and full csv dialect. The reader validates the manifest
+      before reading, supports per sheet overrides over manifest values over global
+      defaults, and exposes the effective per sheet configuration via sheet_config().
   - action: updated
     details:
     - "`#56`: fix regex error when loading multi-file CSV from a directory with special\

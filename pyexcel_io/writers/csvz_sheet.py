@@ -10,6 +10,7 @@ The lower level csvz file format handler.
 
 import csv
 
+from pyexcel_io import csvz_manifest
 from pyexcel_io._compact import StringIO
 from pyexcel_io.writers.csv_sheet import CSVFileWriter
 
@@ -21,6 +22,7 @@ class CSVZipSheetWriter(CSVFileWriter):
         self.file_extension = file_extension
         keywords["single_sheet_in_book"] = False
         self.content = StringIO()
+        self.manifest_recorder = None
         super().__init__(zipfile, sheetname, **keywords)
 
     def get_writer(self):
@@ -29,5 +31,14 @@ class CSVZipSheetWriter(CSVFileWriter):
     def close(self):
         file_name = "%s.%s" % (self._sheet_name, self.file_extension)
         self.content.seek(0)
-        self._native_book.writestr(file_name, self.content.read())
+        self._native_book.writestr(
+            file_name, self.content.read().encode(self._encoding)
+        )
         self.content.close()
+        if self.manifest_recorder:
+            self.manifest_recorder(
+                file_name,
+                self._sheet_name,
+                self._encoding,
+                csvz_manifest.resolve_writer_dialect(self._keywords),
+            )

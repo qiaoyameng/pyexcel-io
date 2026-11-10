@@ -88,9 +88,58 @@ All you need is a unzipping software. I would recommend 7zip which is open sourc
 On latest Windows platform (windows 8), zip file is supported so just give the "csvz" file a file extension as ".zip". The file can be opened by File Explorer.
 
 
+Manifest for mixed encodings and dialects
+-----------------------------------------
+
+A single encoding or delimiter parameter cannot describe a package in
+which one table is UTF-8 comma separated and another is UTF-16
+semicolon separated. For such packages, the writer can record an
+optional manifest member, ``pyexcel_csvz_manifest.json``, which
+describes every table: its member path, sheet name, encoding and full
+csv dialect (delimiter, quotechar, escapechar, doublequote,
+skipinitialspace, lineterminator, quoting). The manifest carries a
+format version and only describes data formats: it never executes
+code and never names plugins or dialects to be imported.
+
+    >>> from pyexcel_io import save_data
+    >>> content = {'utf16 sheet': [[1, 2], [3, 4]]}
+    >>> save_data("mixed.csvz", content, write_manifest=True,
+    ...           sheet_settings={'utf16 sheet': {'encoding': 'utf-16',
+    ...                                           'delimiter': ';'}})
+
+Per sheet encoding and dialect parameters are given through
+``sheet_settings``, a dictionary keyed by sheet name. Global
+parameters apply to all sheets unless a sheet overrides them.
+
+When a manifest is present, the reader validates it before any data
+is read: unknown manifest versions, missing members, duplicate member
+paths, duplicate sheet names and unknown fields are rejected up
+front. Only the members listed in the manifest are treated as tables;
+unrelated files in the archive are left alone. A package without a
+manifest behaves exactly as before, and an ordinary file that merely
+shares the manifest file name is not mistaken for a manifest.
+
+Parameter precedence is: explicit per sheet overrides (given through
+``sheet_overrides``) beat the manifest, the manifest beats global
+parameters, and global parameters are only defaults for values the
+manifest does not declare. The effective configuration of each sheet,
+including which layer each value came from, can be queried:
+
+    >>> from pyexcel_io.reader import Reader
+    >>> reader = Reader("csvz")
+    >>> handle = reader.open("mixed.csvz")
+    >>> config = handle.sheet_config("utf16 sheet")
+    >>> config["parameters"]["encoding"]
+    'utf-16'
+    >>> config["sources"]["encoding"]
+    'manifest'
+    >>> reader.close()
+
+
 .. testcode::
    :hide:
 
     >>> import os
     >>> os.unlink("myfile.csvz")
     >>> os.unlink("mybook.csvz")
+    >>> os.unlink("mixed.csvz")

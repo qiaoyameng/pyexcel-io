@@ -15,6 +15,12 @@ class NoSupportingPluginFound(Exception):
     pass
 
 
+class CSVZManifestError(Exception):
+    """raised when a csvz/tsvz manifest is invalid"""
+
+    pass
+
+
 class SupportingPluginAvailableButNotInstalled(Exception):
     """raised when a known plugin is not installed"""
 
