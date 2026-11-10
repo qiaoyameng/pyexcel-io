@@ -2,9 +2,10 @@ from pyexcel_io.plugins import NEW_WRITERS
 
 
 class Writer(object):
-    def __init__(self, file_type, library=None):
+    def __init__(self, file_type, library=None, context=None):
         self.file_type = file_type
         self.library = library
+        self.context = context
         self.keyboards = None
         # if you know which reader class to use, this attribute allows
         # you to set reader class externally. Since there is no
@@ -15,28 +16,29 @@ class Writer(object):
 
     def open(self, file_name, **keywords):
         if self.writer_class is None:
-            self.writer_class = NEW_WRITERS.get_a_plugin(
-                self.file_type, library=self.library, location="file"
-            )
+            self.writer_class = self._get_writer_class("file")
         self.writer = self.writer_class(file_name, self.file_type, **keywords)
 
     def open_content(self, file_stream, **keywords):
         if self.writer_class is None:
-            self.writer_class = NEW_WRITERS.get_a_plugin(
-                self.file_type, library=self.library, location="content"
-            )
+            self.writer_class = self._get_writer_class("content")
         self.writer = self.writer_class(
             file_stream, self.file_type, **keywords
         )
 
     def open_stream(self, file_stream, **keywords):
         if self.writer_class is None:
-            self.writer_class = NEW_WRITERS.get_a_plugin(
-                self.file_type, library=self.library, location="memory"
-            )
+            self.writer_class = self._get_writer_class("memory")
         self.writer = self.writer_class(
             file_stream, self.file_type, **keywords
         )
+
+    def _get_writer_class(self, location):
+        if self.context is None:
+            return NEW_WRITERS.get_a_plugin(
+                self.file_type, library=self.library, location=location
+            )
+        return self.context.get_a_plugin(location=location)
 
     def write(self, incoming_dict):
         self.writer.write(incoming_dict)

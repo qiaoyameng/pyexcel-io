@@ -26,9 +26,10 @@ def clean_keywords(keywords):
 
 
 class Reader(object):
-    def __init__(self, file_type, library=None):
+    def __init__(self, file_type, library=None, context=None):
         self.file_type = file_type
         self.library = library
+        self.context = context
         self.keywords = None
 
         # if you know which reader class to use, this attribute allows
@@ -40,9 +41,7 @@ class Reader(object):
 
     def open(self, file_name, **keywords):
         if self.reader_class is None:
-            self.reader_class = NEW_READERS.get_a_plugin(
-                self.file_type, location="file", library=self.library
-            )
+            self.reader_class = self._get_reader_class("file")
         self.keywords, native_sheet_keywords = clean_keywords(keywords)
         self.reader = self.reader_class(
             file_name, self.file_type, **native_sheet_keywords
@@ -52,9 +51,7 @@ class Reader(object):
     def open_content(self, file_content, **keywords):
         self.keywords, native_sheet_keywords = clean_keywords(keywords)
         if self.reader_class is None:
-            self.reader_class = NEW_READERS.get_a_plugin(
-                self.file_type, location="content", library=self.library
-            )
+            self.reader_class = self._get_reader_class("content")
         self.reader = self.reader_class(
             file_content, self.file_type, **native_sheet_keywords
         )
@@ -63,13 +60,18 @@ class Reader(object):
     def open_stream(self, file_stream, **keywords):
         self.keywords, native_sheet_keywords = clean_keywords(keywords)
         if self.reader_class is None:
-            self.reader_class = NEW_READERS.get_a_plugin(
-                self.file_type, location="memory", library=self.library
-            )
+            self.reader_class = self._get_reader_class("memory")
         self.reader = self.reader_class(
             file_stream, self.file_type, **native_sheet_keywords
         )
         return self.reader
+
+    def _get_reader_class(self, location):
+        if self.context is None:
+            return NEW_READERS.get_a_plugin(
+                self.file_type, location=location, library=self.library
+            )
+        return self.context.get_a_plugin(location=location)
 
     def read_sheet_by_name(self, sheet_name):
         """

@@ -21,6 +21,22 @@ class SupportingPluginAvailableButNotInstalled(Exception):
     pass
 
 
+class AmbiguousPluginFound(Exception):
+    """raised when more than one plugin share the highest priority"""
+
+    pass
+
+
+class PluginLoadError(Exception):
+    """raised when a selected plugin cannot be imported
+
+    The original exception is kept as the exception cause so that an
+    internal ``ImportError`` is never presented merely as "not installed".
+    """
+
+    pass
+
+
 class IntegerAccuracyLossError(Exception):
     """
     When an integer is greater than 999999999999999, ods loses its accuracy.

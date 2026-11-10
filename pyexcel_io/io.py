@@ -16,6 +16,11 @@ from pyexcel_io import constants
 from pyexcel_io.reader import Reader
 from pyexcel_io.writer import Writer
 from pyexcel_io.plugins import OLD_READERS, OLD_WRITERS
+from pyexcel_io.selection import (
+    READ_ACTION,
+    WRITE_ACTION,
+    PluginSelectionContext,
+)
 from pyexcel_io._compact import isstream
 from pyexcel_io.exceptions import (
     NoSupportingPluginFound,
@@ -23,7 +28,7 @@ from pyexcel_io.exceptions import (
 )
 
 
-def iget_data(afile, file_type=None, **keywords):
+def iget_data(afile, file_type=None, context=None, **keywords):
     """Get data from an excel file source
 
     The data has not gone into memory yet. If you use dedicated partial read
@@ -51,12 +56,18 @@ def iget_data(afile, file_type=None, **keywords):
     :returns: an ordered dictionary
     """
     data, reader = _get_data(
-        afile, file_type=file_type, streaming=True, **keywords
+        afile,
+        file_type=file_type,
+        streaming=True,
+        context=context,
+        **keywords
     )
     return data, reader
 
 
-def get_data(afile, file_type=None, streaming=None, **keywords):
+def get_data(
+    afile, file_type=None, streaming=None, context=None, **keywords
+):
     """Get data from an excel file source
 
     :param afile: a file name, a file stream or actual content
@@ -85,7 +96,11 @@ def get_data(afile, file_type=None, streaming=None, **keywords):
     if streaming is not None and streaming is True:
         warnings.warn("Please use iget_data instead")
     data, _ = _get_data(
-        afile, file_type=file_type, streaming=False, **keywords
+        afile,
+        file_type=file_type,
+        streaming=False,
+        context=context,
+        **keywords
     )
     return data
 
@@ -106,7 +121,7 @@ def _get_data(afile, file_type=None, **keywords):
     return load_data(**keywords)
 
 
-def save_data(afile, data, file_type=None, **keywords):
+def save_data(afile, data, file_type=None, context=None, **keywords):
     """Save data to an excel file source
 
     Your data must be a dictionary
@@ -140,7 +155,7 @@ def save_data(afile, data, file_type=None, **keywords):
     else:
         keywords.update(dict(file_name=afile, file_type=file_type))
     keywords["single_sheet_in_book"] = single_sheet_in_book
-    with get_writer(**keywords) as writer:
+    with get_writer(context=context, **keywords) as writer:
         writer.write(to_store)
 
 
@@ -155,6 +170,7 @@ def load_data(
     sheets=None,
     library=None,
     streaming=False,
+    context=None,
     **keywords
 ):
     """Load data from any supported excel formats
@@ -182,10 +198,22 @@ def load_data(
             except AttributeError:
                 raise Exception(constants.MESSAGE_FILE_NAME_SHOULD_BE_STRING)
 
-    try:
-        reader = OLD_READERS.get_a_plugin(file_type, library)
-    except (NoSupportingPluginFound, SupportingPluginAvailableButNotInstalled):
-        reader = Reader(file_type, library)
+    if context is None:
+        try:
+            reader = OLD_READERS.get_a_plugin(file_type, library)
+        except (
+            NoSupportingPluginFound,
+            SupportingPluginAvailableButNotInstalled,
+        ):
+            reader = Reader(file_type, library)
+    else:
+        reader = Reader(
+            file_type,
+            library,
+            context=_as_bound_context(
+                context, READ_ACTION, file_type, library
+            ),
+        )
 
     try:
         if file_name:
@@ -234,6 +262,7 @@ def get_writer(
     file_type=None,
     library=None,
     force_file_type=None,
+    context=None,
     **keywords
 ):
     """find a suitable writer"""
@@ -256,10 +285,22 @@ def get_writer(
 
         file_type_given = False
 
-    try:
-        writer = OLD_WRITERS.get_a_plugin(file_type, library)
-    except (NoSupportingPluginFound, SupportingPluginAvailableButNotInstalled):
-        writer = Writer(file_type, library)
+    if context is None:
+        try:
+            writer = OLD_WRITERS.get_a_plugin(file_type, library)
+        except (
+            NoSupportingPluginFound,
+            SupportingPluginAvailableButNotInstalled,
+        ):
+            writer = Writer(file_type, library)
+    else:
+        writer = Writer(
+            file_type,
+            library,
+            context=_as_bound_context(
+                context, WRITE_ACTION, file_type, library
+            ),
+        )
 
     if file_name:
         if file_type_given:
@@ -270,6 +311,30 @@ def get_writer(
         writer.open_stream(file_stream, **keywords)
     # else: is resolved by earlier raise statement
     return writer
+
+
+def _as_bound_context(context, action, file_type, library):
+    """Normalize a user supplied context to the requested operation.
+
+    A :class:`PluginSelectionContext` is used as is.  A plain dictionary is
+    treated as shorthand for ``candidates`` / ``priorities`` options and is
+    bound to this operation's action and file type.
+    """
+    if isinstance(context, PluginSelectionContext):
+        return context
+    if not isinstance(context, dict):
+        raise TypeError(
+            "context must be a PluginSelectionContext or a dictionary, "
+            "got %s" % type(context).__name__
+        )
+    normalized = PluginSelectionContext(
+        action,
+        file_type,
+        candidates=context.get("candidates"),
+        priorities=context.get("priorities"),
+        library=context.get("library", library),
+    )
+    return normalized
 
 
 # backward compactibility

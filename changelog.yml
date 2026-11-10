@@ -2,6 +2,19 @@ name: pyexcel-io
 organisation: pyexcel
 releases:
 - changes:
+  - action: added
+    details:
+    - "Per-operation plugin selection context (`PluginSelectionContext`): filter\
+      \ reader/writer candidates by action, file format and file/memory location,\
+      \ then choose by explicit priority and report ambiguity when several plugins\
+      \ share the highest priority. Only the chosen candidate is imported; import\
+      \ failures keep the plugin name and the original exception instead of being\
+      \ reported as 'not installed'. The process level registry order is left\
+      \ untouched, so concurrent operations with opposing priorities are isolated.\
+      \ Calls without a context keep the legacy selection behaviour."
+  version: 0.6.9
+  date: tbd
+- changes:
   - action: updated
     details:
     - "`#56`: fix regex error when loading multi-file CSV from a directory with special\
