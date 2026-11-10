@@ -8,6 +8,7 @@ csv file reader
 :license: New BSD License, see LICENSE for more details
 """
 
+import codecs
 import csv
 
 import pyexcel_io.service as service
@@ -26,6 +27,17 @@ BOM_LITTLE_ENDIAN = b"\xff\xfe"
 BOM_BIG_ENDIAN = b"\xfe\ff"
 LITTLE_ENDIAN = 0
 BIG_ENDIAN = 1
+MMAP_READ_CHUNK_SIZE = 1024
+SUPPORTED_MEMMAP_ENCODINGS = (
+    "utf-8",
+    "utf-8-sig",
+    "utf-16",
+    "utf-16-le",
+    "utf-16-be",
+    "utf-32",
+    "utf-32-le",
+    "utf-32-be",
+)
 
 
 class CSVMemoryMapIterator(object):
@@ -34,63 +46,65 @@ class CSVMemoryMapIterator(object):
 
     mmap object does not handle encoding at all. This class
     provide the necessary transcoding for utf-8, utf-16 and utf-32
+
+    The wrapped mmap is read in fixed size chunks and decoded with an
+    incremental decoder so multibyte characters stay intact across read
+    boundaries. Line splitting happens on decoded text, hence a 0x0A
+    byte that merely belongs to a multibyte character is never mistaken
+    for a line feed. Field trailing whitespace is preserved.
     """
 
     def __init__(self, mmap_obj, encoding):
-        self.__mmap_obj = mmap_obj
-        self.__encoding = encoding
-        self.__count = 0
-        self.__endian = LITTLE_ENDIAN
-        if encoding == "utf-8":
-            # ..\r\x00\n
-            # \x00\x..
-            self.__zeros_left_in_2_row = 0
-        elif encoding == "utf-16":
-            # ..\r\x00\n
-            # \x00\x..
-            self.__zeros_left_in_2_row = 1
-        elif encoding == "utf-32":
-            # \r\x00\x00\x00\n
-            # \x00\x00\x00\x..
-            self.__zeros_left_in_2_row = 3
-        elif encoding in ["utf-32-be", "utf-16-be"]:
-            self.__zeros_left_in_2_row = 0
-            self.__endian = BIG_ENDIAN
-        elif encoding == "utf-32-le":
-            self.__zeros_left_in_2_row = 3
-            self.__endian = LITTLE_ENDIAN
-        elif encoding == "utf-16-le":
-            self.__zeros_left_in_2_row = 1
-            self.__endian = LITTLE_ENDIAN
-        else:
+        if encoding not in SUPPORTED_MEMMAP_ENCODINGS:
             raise Exception("Encoding %s is not supported" % encoding)
+        self.__mmap_obj = mmap_obj
+        self.__decoder = codecs.getincrementaldecoder(encoding)()
+        self.__pending_text = ""
+        self.__eof = False
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        line = self.__mmap_obj.readline()
-        if self.__count == 0:
-            utf_16_32 = (
-                self.__encoding == "utf-16" or self.__encoding == "utf-32"
-            )
-            if utf_16_32:
-                bom_header = line[:2]
-                if bom_header == BOM_BIG_ENDIAN:
-                    self.__endian = BIG_ENDIAN
-        elif self.__endian == LITTLE_ENDIAN:
-            line = line[self.__zeros_left_in_2_row :]  # noqa: E203
-        if self.__endian == LITTLE_ENDIAN:
-            line = line.rstrip()
-        line = line.decode(self.__encoding)
-        self.__count += 1
+        line = self.__read_text_line()
         if line == "":
             raise StopIteration
 
         return line
 
+    def __read_text_line(self):
+        while True:
+            line = self.__split_pending_line()
+            if line is not None:
+                return line
+            if self.__eof:
+                line = self.__pending_text
+                self.__pending_text = ""
+                return line
+            self.__load_chunk()
+
+    def __split_pending_line(self):
+        newline_index = self.__pending_text.find("\n")
+        if newline_index == -1:
+            return None
+        line_end = newline_index + 1
+        line = self.__pending_text[:line_end]
+        self.__pending_text = self.__pending_text[line_end:]
+        return line
+
+    def __load_chunk(self):
+        chunk = self.__mmap_obj.read(MMAP_READ_CHUNK_SIZE)
+        if chunk:
+            self.__pending_text += self.__decoder.decode(chunk, False)
+        else:
+            self.__pending_text += self.__decoder.decode(b"", True)
+            self.__eof = True
+
     def close(self):
-        pass
+        self.__decoder = None
+        self.__mmap_obj = None
+        self.__pending_text = ""
+        self.__eof = True
 
 
 class CSVSheetReader(ISheet):
