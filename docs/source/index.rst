@@ -217,6 +217,8 @@ API
    iget_data
    get_data
    save_data
+   iget_transposed_data
+   transpose_data
 
 
 Indices and tables

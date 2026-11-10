@@ -21,6 +21,12 @@ class SupportingPluginAvailableButNotInstalled(Exception):
     pass
 
 
+class RaggedSheetError(Exception):
+    """raised when transposing ragged rows without a fill value"""
+
+    pass
+
+
 class IntegerAccuracyLossError(Exception):
     """
     When an integer is greater than 999999999999999, ods loses its accuracy.

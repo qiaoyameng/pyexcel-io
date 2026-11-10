@@ -2,6 +2,13 @@ name: pyexcel-io
 organisation: pyexcel
 releases:
 - changes:
+  - action: added
+    details:
+    - Explicit transpose read/write path for csv, tsv, csvz and tsvz files:
+      `transpose_data` and `iget_transposed_data` read the source once, stage
+      rows in blocks under a byte budget shared by all sheets, spill to a
+      temporary directory when the budget is exhausted, reject ragged rows
+      unless a fill value is given, and write through the existing writers.
   - action: updated
     details:
     - "`#56`: fix regex error when loading multi-file CSV from a directory with special\
