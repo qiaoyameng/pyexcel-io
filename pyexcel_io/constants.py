@@ -56,6 +56,9 @@ DB_DJANGO = "django"
 DB_QUERYSET = "queryset"
 KEYWORD_TSV_DIALECT = "excel-tab"
 KEYWORD_LINE_TERMINATOR = "lineterminator"
+KEYWORD_STREAMING = "streaming"
+KEYWORD_DETECT_PREFIX_SIZE = "detect_prefix_size"
+DEFAULT_CSVZ_DETECT_PREFIX_SIZE = 4096
 
 SKIP_DATA = -1
 TAKE_DATA = 0

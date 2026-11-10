@@ -2,6 +2,17 @@ name: pyexcel-io
 organisation: pyexcel
 releases:
 - changes:
+  - action: added
+    details:
+    - "add an optional streaming mode (`streaming=True`) for csvz and tsvz\
+      \ readers, which decompresses the selected zip member incrementally and\
+      \ yields rows line by line instead of loading the whole member into\
+      \ memory."
+    - "in streaming mode, the encoding comes from the explicit `encoding`\
+      \ keyword or a bounded, BOM-first prefix detection (`detect_prefix_size`,\
+      \ default 4096); the detected encoding is locked in with strict error\
+      \ handling, duplicate sheet names are rejected at open time, and unselected\
+      \ sheets are never decompressed."
   - action: updated
     details:
     - "`#56`: fix regex error when loading multi-file CSV from a directory with special\
